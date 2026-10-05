@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import logging
 import sys
 from tempfile import TemporaryDirectory
 
@@ -24,5 +25,9 @@ if __name__ == "__main__":
             os.environ["XDG_DATA_HOME"] = test_directory
             os.environ["XDG_CONFIG_HOME"] = test_directory
             os.environ["APPDATA"] = test_directory
-            raise SystemExit(run())
+            try:
+                exit_code = run()
+            finally:
+                logging.shutdown()  # Release the temporary log before Windows removes it.
+            raise SystemExit(exit_code)
     raise SystemExit(run())
