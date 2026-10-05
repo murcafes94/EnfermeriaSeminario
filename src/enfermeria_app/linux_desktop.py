@@ -34,6 +34,10 @@ def move_window_to_workspace(window_id: int, workspace_index: int = 1) -> bool:
             timeout=3,
             check=False,
         )
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+        # Activate the moved window so the user sees its workspace immediately.
+        activation=subprocess.run(["wmctrl","-ia",hex(int(window_id))],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=3,check=False)
+        return activation.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False

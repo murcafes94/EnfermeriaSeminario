@@ -32,7 +32,7 @@ def launch_panel() -> bool:
 
 def launch_main_application() -> bool:
     try:
-        subprocess.Popen(application_command(), close_fds=os.name != "nt")
+        subprocess.Popen(application_command("main") + ["--current-workspace"], close_fds=os.name != "nt")
         return True
     except OSError:
         return False

@@ -1,7 +1,7 @@
 # Enfermería San Giuseppe Moscati
 
 Aplicación de escritorio para la Enfermería del Seminario Mayor de Guayaquil.
-Python, PySide6 y SQLite. La versión actual es **3.6.1**.
+Python, PySide6 y SQLite. La versión actual es **3.6.2**.
 
 Incluye inventario por lotes, entregas y dosis administradas, fichas sanitarias
 con foto, controles de salud, evaluación orientativa de presión y frecuencia
@@ -9,12 +9,12 @@ cardíaca, exportaciones A4 y sincronización de consulta web.
 
 ## Descargar aplicaciones
 
-En la pestaña Actions, abrir la última ejecución correcta de **Generar Windows**
+En la pestaña Actions, abrir la última ejecución correcta de **Generar Linux y Windows**
 y descargar el artefacto de Linux o Windows. La misma ejecución compila ambos.
 El instalador Windows se abre con doble clic. En Linux se extrae el tar.gz y se
 abre la aplicación o se usa su script de instalación en el menú.
 
-Ver [las instrucciones de la versión](LEEME_v3.6.1.md).
+Ver [las instrucciones de la versión](LEEME_v3.6.2.md).
 
 ## Ejecutar el código
 

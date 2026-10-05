@@ -894,7 +894,7 @@ class ConfigurationPage(BasePage):
 
     def refresh_linux_settings(self):
         linux=is_linux_desktop();supported,message=workspace_support_status()
-        for widget,value in ((self.linux_fullscreen,self.db.get_setting("linux_fullscreen","1")=="1"),(self.linux_workspace,self.db.get_setting("linux_workspace_2","1")=="1"),(self.linux_notifications,is_notifier_autostart_enabled())):
+        for widget,value in ((self.linux_fullscreen,self.db.get_setting("linux_fullscreen","1")=="1"),(self.linux_workspace,self.db.get_setting("linux_workspace_2","0")=="1"),(self.linux_notifications,is_notifier_autostart_enabled())):
             widget.blockSignals(True);widget.setChecked(value);widget.setEnabled(linux);widget.blockSignals(False)
         self.linux_workspace.setEnabled(linux and supported)
         notification_state="activadas" if is_notifier_autostart_enabled() else "desactivadas"
