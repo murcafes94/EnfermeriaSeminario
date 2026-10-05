@@ -16,7 +16,7 @@ where ISCC >nul 2>nul
 if %errorlevel%==0 (
   ISCC scripts\installer_windows.iss
   if errorlevel 1 goto :failed
-  if defined SIGNTOOL_CERT_PATH call :sign_file "dist\installer\EnfermeriaSanGiuseppeMoscati-Setup-3.6.0.exe"
+  if defined SIGNTOOL_CERT_PATH call :sign_file "dist\installer\EnfermeriaSanGiuseppeMoscati-Setup-3.6.1.exe"
   echo Instalador generado en dist\installer
 ) else (
   echo Inno Setup no esta instalado; se genero la aplicacion portable.

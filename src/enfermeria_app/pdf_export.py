@@ -21,6 +21,7 @@ from reportlab.platypus.tableofcontents import TableOfContents
 
 from .config import ASSETS_DIR
 from .database import Database
+from .vital_evaluation import DISCLAIMER, CRITERIA_NOTE, evaluate_pressure, evaluate_pulse
 
 
 NAVY=colors.HexColor("#123B5D")
@@ -158,6 +159,12 @@ def _profile_sections(row):
     ]
 
 
+def _evaluation_paragraph(result, measurement=""):
+    style=ParagraphStyle("VitalEvaluation",parent=STYLES["body"],textColor=colors.HexColor(result.pdf_color),fontName=FONT_BOLD)
+    text=(str(measurement)+"\n" if measurement else "")+result.label
+    return Paragraph(escape(text).replace("\n","<br/>"),style)
+
+
 def _control_summary(control):
     pressure=f"{control['systolic']}/{control['diastolic']} mmHg" if control["systolic"] and control["diastolic"] else "-"
     context={"fasting":"Ayunas","postprandial":"Después de comer","random":"Aleatoria","":"No especificada"}.get(control["glucose_context"],control["glucose_context"])
@@ -172,7 +179,16 @@ def _control_summary(control):
     ]
     data=[]
     for row in rows:data.append([_p(row[0],"small"),_p(row[1]),_p(row[2],"small"),_p(row[3],"warning" if row[2]=="Estado" and control["voided_at"] else "body")])
+    pressure_result=evaluate_pressure(control["systolic"],control["diastolic"]);pulse_result=evaluate_pulse(control["pulse"])
+    data.append([_p("Evaluación presión","small"),_evaluation_paragraph(pressure_result),_p("Evaluación frecuencia","small"),_evaluation_paragraph(pulse_result)])
+    advice_row=None
+    if pressure_result.note:
+        advice_row=len(data);data.append([_p(pressure_result.note,"warning" if pressure_result.code=="critical" else "body"),"","",""])
+    disclaimer_row=len(data);data.append([_p(DISCLAIMER+" " + CRITERIA_NOTE,"small"),"","",""])
     t=Table(data,colWidths=[2.5*cm,5.5*cm,2.5*cm,5.9*cm],repeatRows=0)
+    spans=[("SPAN",(0,disclaimer_row),(-1,disclaimer_row)),("BACKGROUND",(0,disclaimer_row),(-1,disclaimer_row),colors.white)]
+    if advice_row is not None:spans.extend([("SPAN",(0,advice_row),(-1,advice_row)),("BACKGROUND",(0,advice_row),(-1,advice_row),colors.white)])
+    t.setStyle(TableStyle(spans))
     t.setStyle(TableStyle([("GRID",(0,0),(-1,-1),.35,colors.HexColor("#C8D7DD")),("BACKGROUND",(0,0),(0,-1),PALE),("BACKGROUND",(2,0),(2,-1),PALE),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)]))
     return t
 
@@ -182,8 +198,8 @@ def _history_table(controls):
     for c in controls:
         pressure=f"{c['systolic']}/{c['diastolic']}" if c["systolic"] and c["diastolic"] else "-"
         state="Anulado" if c["voided_at"] else "Vigente"
-        data.append([_p(str(c["measured_at"]).replace("T"," ")[:16],"small"),_p(c["weight_kg"] or "-","small"),_p(c["bmi"] or "-","small"),_p(pressure,"small"),_p(c["pulse"] or "-","small"),_p(c["glucose_mg_dl"] or "-","small"),_p(c["oxygen_saturation"] or "-","small"),_p(c["temperature_c"] or "-","small"),_p(state,"warning" if c["voided_at"] else "small")])
-    t=Table(data,colWidths=[2.4*cm,1.35*cm,1.15*cm,1.55*cm,1.25*cm,1.45*cm,1.3*cm,1.25*cm,1.6*cm],repeatRows=1)
+        data.append([_p(str(c["measured_at"]).replace("T"," ")[:16],"small"),_p(c["weight_kg"] or "-","small"),_p(c["bmi"] or "-","small"),_evaluation_paragraph(evaluate_pressure(c["systolic"],c["diastolic"]),pressure),_evaluation_paragraph(evaluate_pulse(c["pulse"]),c["pulse"] or "-"),_p(c["glucose_mg_dl"] or "-","small"),_p(c["oxygen_saturation"] or "-","small"),_p(c["temperature_c"] or "-","small"),_p(state,"warning" if c["voided_at"] else "small")])
+    t=Table(data,colWidths=[2.4*cm,1.2*cm,1.0*cm,3.35*cm,2.65*cm,1.55*cm,1.3*cm,1.2*cm,1.75*cm],repeatRows=1)
     t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),NAVY),("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),.3,colors.HexColor("#B7CAD3")),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F4F8FA")]),("LEFTPADDING",(0,0),(-1,-1),3),("RIGHTPADDING",(0,0),(-1,-1),3),("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)]))
     return t
 
