@@ -1,0 +1,42 @@
+name: Generar Windows
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt pyinstaller
+      - name: Comprobar datos, controles y exportaciones
+        run: python -m unittest discover -s tests -v
+      - name: Generar aplicación
+        run: python -m PyInstaller --noconfirm --clean --windowed --name EnfermeriaSeminario --icon assets/app_icon.ico --version-file scripts/version_info.txt --add-data "assets;assets" --collect-data reportlab --paths src run.py
+      - name: Generar instalador y portable
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $compiler)) { throw 'No se encontró Inno Setup en el equipo Windows.' }
+          & $compiler scripts/installer_windows.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Falló la creación del instalador.' }
+          New-Item -ItemType Directory -Force dist/entrega | Out-Null
+          Copy-Item dist/installer/*.exe dist/entrega/
+          Compress-Archive -Path dist/EnfermeriaSeminario -DestinationPath dist/entrega/Enfermeria-Windows-Portable-3.6.0.zip
+          Copy-Item LEEME_v3.6.0.md dist/entrega/
+          Get-ChildItem dist/entrega -File | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $([IO.Path]::GetFileName($_.Path))" } | Set-Content dist/entrega/SHA256SUMS.txt
+      - name: Descargar resultados
+        uses: actions/upload-artifact@v4
+        with:
+          name: Enfermeria-Windows-v3.6.0
+          path: dist/entrega/
+          if-no-files-found: error
+          retention-days: 14
