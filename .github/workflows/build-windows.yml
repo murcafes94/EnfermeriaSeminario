@@ -1,4 +1,4 @@
-name: Generar Linux y Windows
+name: Generar Windows
 on:
   push:
     branches: [main]
@@ -20,7 +20,7 @@ jobs:
       - name: Comprobar datos, controles y exportaciones
         run: python -m unittest discover -s tests -v
       - name: Generar aplicación
-        run: python -m PyInstaller --noconfirm --clean --windowed --name EnfermeriaSeminario --icon assets/app_icon.ico --version-file scripts/version_info.txt --add-data "assets;assets" --collect-data reportlab --paths src run.py
+        run: python -m PyInstaller --noconfirm --clean --windowed --name EnfermeriaSeminario --icon assets/app_icon.ico --version-file scripts/version_info.txt --add-data "assets;assets" --collect-data reportlab --exclude-module numpy --paths src run.py
       - name: Verificar ventana principal empaquetada
         shell: pwsh
         env:
@@ -38,52 +38,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Falló la creación del instalador.' }
           New-Item -ItemType Directory -Force dist/entrega | Out-Null
           Copy-Item dist/installer/*.exe dist/entrega/
-          Compress-Archive -Path dist/EnfermeriaSeminario -DestinationPath dist/entrega/Enfermeria-Windows-Portable-3.6.2.zip
-          Copy-Item LEEME_v3.6.2.md dist/entrega/
+          Compress-Archive -Path dist/EnfermeriaSeminario -DestinationPath dist/entrega/Enfermeria-Windows-Portable-3.6.3.zip
+          Copy-Item LEEME_v3.6.3.md dist/entrega/
           Get-ChildItem dist/entrega -File | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $([IO.Path]::GetFileName($_.Path))" } | Set-Content dist/entrega/SHA256SUMS.txt
       - name: Descargar resultados
         uses: actions/upload-artifact@v6
         with:
-          name: Enfermeria-Windows-v3.6.2
+          name: Enfermeria-Windows-v3.6.3
           path: dist/entrega/
           if-no-files-found: error
           retention-days: 14
 
-  linux:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    env:
-      QT_QPA_PLATFORM: offscreen
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - name: Preparar bibliotecas Qt
-        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-shape0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-render-util0 xvfb xauth
-      - name: Instalar dependencias
-        run: python -m pip install -r requirements.txt pyinstaller
-      - name: Comprobar controles, formulario y exportaciones
-        run: python -m unittest discover -s tests -v
-      - name: Generar aplicación Linux
-        run: |
-          python -m PyInstaller --noconfirm --clean --windowed --name EnfermeriaSeminario --icon assets/app_icon.png --add-data "assets:assets" --collect-data reportlab --paths src run.py
-          cp scripts/open_linux.sh dist/EnfermeriaSeminario/Abrir_Enfermeria.sh
-          cp scripts/install_linux.sh dist/EnfermeriaSeminario/Instalar_en_menu_de_aplicaciones.sh
-          cp scripts/uninstall_linux.sh dist/EnfermeriaSeminario/Desinstalar_del_menu.sh
-          cp assets/app_icon.png dist/EnfermeriaSeminario/app_icon.png
-          cp LEEME_v3.6.2.md dist/EnfermeriaSeminario/
-          chmod +x dist/EnfermeriaSeminario/EnfermeriaSeminario dist/EnfermeriaSeminario/*.sh
-      - name: Verificar aplicación empaquetada con escritorio X11
-        run: |
-          if ldd dist/EnfermeriaSeminario/_internal/PySide6/Qt/plugins/platforms/libqxcb.so | grep 'not found'; then exit 1; fi
-          QT_QPA_PLATFORM=xcb xvfb-run -a timeout 30s dist/EnfermeriaSeminario/EnfermeriaSeminario --main --smoke-test
-      - name: Empaquetar Linux
-        run: |
-          tar -czf dist/Enfermeria-Linux-v3.6.2.tar.gz -C dist EnfermeriaSeminario
-      - uses: actions/upload-artifact@v6
-        with:
-          name: Enfermeria-Linux-v3.6.2
-          path: dist/Enfermeria-Linux-v3.6.2.tar.gz
-          if-no-files-found: error
-          retention-days: 14

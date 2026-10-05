@@ -18,8 +18,26 @@ icon_dir="$HOME/.local/share/icons/hicolor/256x256/apps"
 desktop_file="$desktop_dir/enfermeria-san-giuseppe-moscati.desktop"
 panel_desktop_file="$desktop_dir/enfermeria-panel-rapido.desktop"
 icon_file="$icon_dir/enfermeria-san-giuseppe-moscati.png"
-mkdir -p "$app_dir" "$desktop_dir" "$icon_dir"
-cp -a "$source_dir/." "$app_dir/"
+mkdir -p "$(dirname "$app_dir")" "$desktop_dir" "$icon_dir"
+# Preparar una copia completa antes de sustituir la instalación anterior.
+# No se sobrescribe un ejecutable que todavía esté abierto.
+if [[ "$source_dir" != "$app_dir" ]]; then
+  stage_dir="$(mktemp -d "${app_dir}.nuevo.XXXXXX")"
+  trap 'rm -rf -- "$stage_dir"' EXIT
+  cp -a "$source_dir/." "$stage_dir/"
+  backup_dir="${app_dir}.anterior"
+  if [[ -e "$backup_dir" ]]; then
+    echo "Existe una instalación anterior en $backup_dir. Cierra la app y el panel y renombra esa carpeta antes de actualizar."
+    exit 1
+  fi
+  if [[ -d "$app_dir" ]]; then mv -- "$app_dir" "$backup_dir"; fi
+  if ! mv -- "$stage_dir" "$app_dir"; then
+    if [[ -d "$backup_dir" ]]; then mv -- "$backup_dir" "$app_dir"; fi
+    exit 1
+  fi
+  trap - EXIT
+  if [[ -d "$backup_dir" ]]; then rm -rf -- "$backup_dir"; fi
+fi
 
 if [[ -f "$source_dir/app_icon.png" ]]; then
   cp "$source_dir/app_icon.png" "$icon_file"
@@ -39,7 +57,7 @@ Version=1.0
 Name=Enfermería San Giuseppe Moscati
 GenericName=Enfermería
 Comment=Inventario, expedientes de salud y controles de salud
-Exec="$app_dir/EnfermeriaSeminario" --main --current-workspace
+Exec="$app_dir/Abrir_Enfermeria.sh"
 Icon=enfermeria-san-giuseppe-moscati
 Categories=Office;Utility;
 Keywords=enfermería;medicamentos;inventario;salud;

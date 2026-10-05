@@ -8,7 +8,7 @@ python -m pip install --upgrade pip
 if errorlevel 1 goto :failed
 python -m pip install -r requirements.txt pyinstaller
 if errorlevel 1 goto :failed
-python -m PyInstaller --noconfirm --clean --windowed --name EnfermeriaSeminario --icon "assets\app_icon.ico" --version-file "scripts\version_info.txt" --add-data "assets;assets" --collect-data reportlab --paths src run.py
+python -m PyInstaller --noconfirm --clean --windowed --name EnfermeriaSeminario --icon "assets\app_icon.ico" --version-file "scripts\version_info.txt" --add-data "assets;assets" --collect-data reportlab --exclude-module numpy --paths src run.py
 if errorlevel 1 goto :failed
 echo Aplicacion generada en dist\EnfermeriaSeminario
 if defined SIGNTOOL_CERT_PATH call :sign_file "dist\EnfermeriaSeminario\EnfermeriaSeminario.exe"
@@ -16,7 +16,7 @@ where ISCC >nul 2>nul
 if %errorlevel%==0 (
   ISCC scripts\installer_windows.iss
   if errorlevel 1 goto :failed
-  if defined SIGNTOOL_CERT_PATH call :sign_file "dist\installer\EnfermeriaSanGiuseppeMoscati-Setup-3.6.2.exe"
+  if defined SIGNTOOL_CERT_PATH call :sign_file "dist\installer\EnfermeriaSanGiuseppeMoscati-Setup-3.6.3.exe"
   echo Instalador generado en dist\installer
 ) else (
   echo Inno Setup no esta instalado; se genero la aplicacion portable.

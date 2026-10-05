@@ -4,6 +4,12 @@ import logging
 import sys
 from tempfile import TemporaryDirectory
 
+# Excel solo usa números de Python en esta aplicación. En los paquetes no
+# habilitamos NumPy: una carpeta residual puede importarse como un paquete
+# vacío y romper openpyxl antes de crear la ventana principal.
+if getattr(sys, "frozen", False):
+    sys.modules["numpy"] = None
+
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 

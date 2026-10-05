@@ -1,5 +1,5 @@
 #define MyAppName "Enfermería San Giuseppe Moscati"
-#define MyAppVersion "3.6.2"
+#define MyAppVersion "3.6.3"
 #define MyAppExeName "EnfermeriaSeminario.exe"
 
 [Setup]
@@ -10,7 +10,7 @@ AppPublisher=Seminario Mayor de Guayaquil
 DefaultDirName={localappdata}\Programs\EnfermeriaSeminario
 DefaultGroupName={#MyAppName}
 OutputDir=..\dist\installer
-OutputBaseFilename=EnfermeriaSanGiuseppeMoscati-Setup-3.6.2
+OutputBaseFilename=EnfermeriaSanGiuseppeMoscati-Setup-3.6.3
 SetupIconFile=..\assets\app_icon.ico
 Compression=lzma2
 SolidCompression=yes
