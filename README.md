@@ -31,3 +31,6 @@ Pruebas: `python -m unittest discover -s tests -v`.
 Este repositorio contiene código e imágenes de la aplicación. Los datos de
 salud y las credenciales de conexión se guardan por separado en el equipo del
 encargado. La evaluación es orientativa y no constituye diagnóstico médico.
+
+Después de actualizar, usar **Sincronizar ahora** en la app para regenerar los
+PDF del portal con la evaluación automática.
