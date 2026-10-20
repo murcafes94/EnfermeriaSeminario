@@ -25,7 +25,10 @@ from .panel_integration import (
     set_notifier_autostart, set_panel_autostart,
 )
 from .sync_ui import WebSyncPage
-from .vital_evaluation import DISCLAIMER, CRITERIA_NOTE, evaluate_pressure, evaluate_pulse
+from .vital_evaluation import (
+    CRITERIA_NOTE, DISCLAIMER, PRESSURE_ALARM_SYMPTOMS, evaluate_glucose,
+    evaluate_pressure, evaluate_pulse, pressure_alarm_symptom_text,
+)
 from . import __version__
 
 
@@ -431,7 +434,7 @@ class SeminarianDialog(QDialog):
 
 class MedicalControlDialog(QDialog):
     def __init__(self,parent,data=None):
-        super().__init__(parent);data=dict(data or {});self.setWindowTitle("Editar control de salud" if data else "Nuevo control de salud");self.resize(620,610);self.setMinimumSize(500,420)
+        super().__init__(parent);is_new=not data;data=dict(data or {});self.setWindowTitle("Editar control de salud" if data else "Nuevo control de salud");self.resize(680,760);self.setMinimumSize(520,480)
         root=QVBoxLayout(self);scroll,form=scrollable_form(self);root.addWidget(scroll,1)
         self.measured=QDateTimeEdit();self.measured.setCalendarPopup(True);self.measured.setDisplayFormat("dd/MM/yyyy HH:mm")
         parsed=QDateTime.fromString(str(data.get("measured_at", "")),Qt.DateFormat.ISODate);self.measured.setDateTime(parsed if parsed.isValid() else QDateTime.currentDateTime())
@@ -441,33 +444,60 @@ class MedicalControlDialog(QDialog):
             widget=QSpinBox();widget.setRange(0,maximum);widget.setSpecialValueText("No registrado");widget.setSuffix(suffix);return widget
         self.weight=decimal(500,2," kg");self.height=decimal(260,1," cm")
         self.systolic=integer(300," mmHg");self.diastolic=integer(200," mmHg");self.pulse=integer(250," lpm")
-        self.glucose=decimal(1000,1," mg/dL");self.glucose_context=QComboBox()
-        for text,value in [("No especificado",""),("En ayunas","fasting"),("Después de comer","postprandial"),("Aleatoria","random")]:self.glucose_context.addItem(text,value)
+        self.glucose=decimal(1000,1," mg/dL");self.glucose_sample_type=QComboBox();self.glucose_context=QComboBox()
+        for text,value in [("No especificado",""),("Capilar","capillary"),("Laboratorio","laboratory")]:self.glucose_sample_type.addItem(text,value)
+        for text,value in [("No especificada",""),("Ayunas","fasting"),("2 h después de comer","postprandial_2h"),("Aleatoria","random")]:self.glucose_context.addItem(text,value)
         self.spo2=decimal(100,1," %");self.temperature=decimal(45,1," °C");self.notes=QTextEdit();self.notes.setMaximumHeight(85);self.referral=QLineEdit();self.recorded_by=QLineEdit()
         for widget,key in [(self.weight,"weight_kg"),(self.height,"height_cm"),(self.systolic,"systolic"),(self.diastolic,"diastolic"),(self.pulse,"pulse"),(self.glucose,"glucose_mg_dl"),(self.spo2,"oxygen_saturation"),(self.temperature,"temperature_c")]:
             if data.get(key) not in (None,""):widget.setValue(int(data[key]) if isinstance(widget,QSpinBox) else float(data[key]))
-        idx=self.glucose_context.findData(data.get("glucose_context", ""));self.glucose_context.setCurrentIndex(max(0,idx))
+        sample_value="capillary" if is_new else data.get("glucose_sample_type","")
+        context_value="fasting" if is_new else data.get("glucose_context","")
+        if context_value=="postprandial":context_value="postprandial_2h"
+        idx=self.glucose_sample_type.findData(sample_value);self.glucose_sample_type.setCurrentIndex(max(0,idx))
+        idx=self.glucose_context.findData(context_value);self.glucose_context.setCurrentIndex(max(0,idx))
         self.notes.setPlainText(str(data.get("notes","") or ""));self.referral.setText(str(data.get("referral","") or ""));self.recorded_by.setText(str(data.get("recorded_by","") or ""))
-        for label,widget in [("Fecha y hora *",self.measured),("Peso",self.weight),("Estatura",self.height),("Presión sistólica",self.systolic),("Presión diastólica",self.diastolic),("Frecuencia cardíaca",self.pulse),("Glucosa",self.glucose),("Condición de glucosa",self.glucose_context),("Saturación de oxígeno",self.spo2),("Temperatura",self.temperature),("Síntomas u observaciones",self.notes),("Recomendación o derivación",self.referral),("Registrado por",self.recorded_by)]:form.addRow(label,widget)
-        self.pressure_evaluation=QLabel();self.pulse_evaluation=QLabel();self.evaluation_advice=QLabel()
-        for label in (self.pressure_evaluation,self.pulse_evaluation,self.evaluation_advice):
+        for label,widget in [("Fecha y hora *",self.measured),("Peso",self.weight),("Estatura",self.height),("Presión sistólica",self.systolic),("Presión diastólica",self.diastolic),("Frecuencia cardíaca",self.pulse),("Glucemia",self.glucose),("Tipo de muestra",self.glucose_sample_type),("Condición",self.glucose_context),("Saturación de oxígeno",self.spo2),("Temperatura",self.temperature)]:form.addRow(label,widget)
+
+        self.pressure_alarm_group=QGroupBox("Síntomas de alarma por presión severamente elevada")
+        alarm_layout=QVBoxLayout(self.pressure_alarm_group)
+        alarm_intro=QLabel("Marca cualquier síntoma presente. Con uno o más síntomas se indicará atención médica urgente.");alarm_intro.setWordWrap(True);alarm_layout.addWidget(alarm_intro)
+        self.pressure_alarm_checks={}
+        saved_symptoms=set(str(data.get("pressure_alarm_symptoms","") or "").split(","))
+        for code,text in PRESSURE_ALARM_SYMPTOMS:
+            symptom=QCheckBox(text);symptom.setChecked(code in saved_symptoms);symptom.toggled.connect(self.refresh_evaluation);alarm_layout.addWidget(symptom);self.pressure_alarm_checks[code]=symptom
+        form.addRow(self.pressure_alarm_group)
+
+        form.addRow("Síntomas u observaciones",self.notes);form.addRow("Recomendación o derivación",self.referral);form.addRow("Registrado por",self.recorded_by)
+        self.pressure_evaluation=QLabel();self.glucose_evaluation=QLabel();self.pulse_evaluation=QLabel();self.evaluation_advice=QLabel();self.glucose_advice=QLabel()
+        for label in (self.pressure_evaluation,self.glucose_evaluation,self.pulse_evaluation,self.evaluation_advice,self.glucose_advice):
             label.setWordWrap(True);label.setTextFormat(Qt.TextFormat.PlainText);form.addRow(label)
         info=QLabel(DISCLAIMER+"\n"+CRITERIA_NOTE);info.setWordWrap(True);info.setObjectName("subtitle");form.addRow(info)
-        for widget in (self.systolic,self.diastolic,self.pulse):widget.valueChanged.connect(self.refresh_evaluation)
+        for widget in (self.systolic,self.diastolic,self.pulse,self.glucose):widget.valueChanged.connect(self.refresh_evaluation)
+        self.glucose_sample_type.currentIndexChanged.connect(self.refresh_evaluation);self.glucose_context.currentIndexChanged.connect(self.refresh_evaluation)
         self.refresh_evaluation()
         root.addWidget(save_cancel_buttons(self,self.accept))
 
     def refresh_evaluation(self,*_):
-        pressure=evaluate_pressure(self.systolic.value(),self.diastolic.value());pulse=evaluate_pulse(self.pulse.value())
-        for label,result in ((self.pressure_evaluation,pressure),(self.pulse_evaluation,pulse)):
+        severe=self.systolic.value()>180 or self.diastolic.value()>120
+        self.pressure_alarm_group.setVisible(severe)
+        symptom_codes=[code for code,widget in self.pressure_alarm_checks.items() if widget.isChecked()] if severe else []
+        pressure=evaluate_pressure(self.systolic.value(),self.diastolic.value(),symptom_codes)
+        glucose=evaluate_glucose(self.glucose.value(),self.glucose_sample_type.currentData(),self.glucose_context.currentData())
+        pulse=evaluate_pulse(self.pulse.value())
+        for label,result in ((self.pressure_evaluation,pressure),(self.glucose_evaluation,glucose),(self.pulse_evaluation,pulse)):
             label.setText(result.label);label.setStyleSheet(f"color: {result.color}; background-color: #123b5d; border: 1px solid {result.color}; border-radius: 6px; padding: 8px; font-weight: bold;")
         self.evaluation_advice.setText(pressure.note);self.evaluation_advice.setVisible(bool(pressure.note))
         self.evaluation_advice.setStyleSheet(f"color: {pressure.color};")
+        self.glucose_advice.setText(glucose.note);self.glucose_advice.setVisible(bool(glucose.note))
+        self.glucose_advice.setStyleSheet(f"color: {glucose.color};")
 
     def values(self):
+        severe=self.systolic.value()>180 or self.diastolic.value()>120
+        symptoms=",".join(code for code,widget in self.pressure_alarm_checks.items() if severe and widget.isChecked())
         return {"measured_at":self.measured.dateTime().toString(Qt.DateFormat.ISODate),"weight_kg":self.weight.value(),"height_cm":self.height.value(),
                 "systolic":self.systolic.value(),"diastolic":self.diastolic.value(),"pulse":self.pulse.value(),"glucose_mg_dl":self.glucose.value(),
-                "glucose_context":self.glucose_context.currentData(),"oxygen_saturation":self.spo2.value(),"temperature_c":self.temperature.value(),
+                "pressure_alarm_symptoms":symptoms,"glucose_sample_type":self.glucose_sample_type.currentData(),"glucose_context":self.glucose_context.currentData(),
+                "oxygen_saturation":self.spo2.value(),"temperature_c":self.temperature.value(),
                 "notes":self.notes.toPlainText(),"referral":self.referral.text(),"recorded_by":self.recorded_by.text()}
 
 
@@ -476,19 +506,21 @@ class MedicalHistoryDialog(QDialog):
     def __init__(self,parent,db:Database,seminarian_id:int,name:str):
         super().__init__(parent);self.db=db;self.seminarian_id=seminarian_id;self.setWindowTitle(f"Controles de salud · {name}");self.resize(1100,600);self.setMinimumSize(760,430)
         root=QVBoxLayout(self);root.setAlignment(Qt.AlignmentFlag.AlignTop);title=QLabel(f"Controles de salud de {name}");title.setObjectName("title");title.setMaximumHeight(48);root.addWidget(title);sub=QLabel("Historial de mediciones. Evaluación orientativa; no constituye diagnóstico médico.");sub.setObjectName("subtitle");sub.setMaximumHeight(38);root.addWidget(sub)
-        self.grid=table(["ID","Fecha","Peso","Estatura","IMC","Presión","Pulso","Glucosa","Contexto","SpO₂","Temp.","Observaciones","Estado","Evaluación presión","Evaluación frecuencia"]);root.addWidget(self.grid);self.grid.doubleClicked.connect(self.edit)
-        actions=QHBoxLayout();actions.addWidget(button("+ Nuevo control",self.add,True));actions.addWidget(button("Editar seleccionado",self.edit));actions.addWidget(button("PDF del control seleccionado",self.export_control));actions.addWidget(button("PDF del historial",self.export_history));actions.addWidget(button("Anular registro",self.void,False,True));self.show_voided=QCheckBox("Mostrar anulados");self.show_voided.setToolTip("Los controles anulados se conservan únicamente para auditoría");self.show_voided.toggled.connect(self.refresh);actions.addWidget(self.show_voided);actions.addStretch();actions.addWidget(button("Cerrar",self.accept));root.addLayout(actions);root.addStretch();self.grid.setColumnWidth(13,360);self.grid.setColumnWidth(14,180);self.refresh()
+        self.grid=table(["ID","Fecha","Peso","Estatura","IMC","Presión","Pulso","Glucemia","Muestra","Condición","SpO₂","Temp.","Observaciones","Estado","Evaluación presión","Evaluación glucemia","Evaluación frecuencia"]);root.addWidget(self.grid);self.grid.doubleClicked.connect(self.edit)
+        actions=QHBoxLayout();actions.addWidget(button("+ Nuevo control",self.add,True));actions.addWidget(button("Editar seleccionado",self.edit));actions.addWidget(button("PDF del control seleccionado",self.export_control));actions.addWidget(button("PDF del historial",self.export_history));actions.addWidget(button("Anular registro",self.void,False,True));self.show_voided=QCheckBox("Mostrar anulados");self.show_voided.setToolTip("Los controles anulados se conservan únicamente para auditoría");self.show_voided.toggled.connect(self.refresh);actions.addWidget(self.show_voided);actions.addStretch();actions.addWidget(button("Cerrar",self.accept));root.addLayout(actions);root.addStretch();self.grid.setColumnWidth(14,360);self.grid.setColumnWidth(15,330);self.grid.setColumnWidth(16,180);self.refresh()
     def refresh(self):
-        self.grid.setRowCount(0);contexts={"fasting":"Ayunas","postprandial":"Después de comer","random":"Aleatoria","":"—"}
+        self.grid.setRowCount(0);contexts={"fasting":"Ayunas","postprandial":"2 h después de comer","postprandial_2h":"2 h después de comer","random":"Aleatoria","":"—"};samples={"capillary":"Capilar","laboratory":"Laboratorio","":"—"}
         sql="SELECT * FROM medical_controls WHERE seminarian_id=?"
         if not self.show_voided.isChecked():sql+=" AND voided_at IS NULL"
         sql+=" ORDER BY measured_at DESC,id DESC"
         for r in self.db.query(sql,(self.seminarian_id,)):
             pressure=f"{r['systolic']}/{r['diastolic']}" if r["systolic"] and r["diastolic"] else "—";state="Anulado" if r["voided_at"] else "Vigente"
-            pressure_result=evaluate_pressure(r["systolic"],r["diastolic"]);pulse_result=evaluate_pulse(r["pulse"])
-            set_row(self.grid,[r["id"],r["measured_at"].replace("T"," ")[:16],r["weight_kg"] or "—",r["height_cm"] or "—",r["bmi"] or "—",pressure,r["pulse"] or "—",r["glucose_mg_dl"] or "—",contexts.get(r["glucose_context"],r["glucose_context"]),r["oxygen_saturation"] or "—",r["temperature_c"] or "—",r["notes"] or "—",state,pressure_result.label,pulse_result.label],{12:"#ef6a72" if r["voided_at"] else "#56d38a",13:pressure_result.color,14:pulse_result.color})
-            self.grid.item(self.grid.rowCount()-1,13).setToolTip(pressure_result.label+"\n"+pressure_result.note+"\n"+DISCLAIMER)
-            self.grid.item(self.grid.rowCount()-1,14).setToolTip(pulse_result.label+"\nReferencia para adultos en reposo.\n"+DISCLAIMER)
+            pressure_result=evaluate_pressure(r["systolic"],r["diastolic"],r["pressure_alarm_symptoms"]);glucose_result=evaluate_glucose(r["glucose_mg_dl"],r["glucose_sample_type"],r["glucose_context"]);pulse_result=evaluate_pulse(r["pulse"])
+            set_row(self.grid,[r["id"],r["measured_at"].replace("T"," ")[:16],r["weight_kg"] or "—",r["height_cm"] or "—",r["bmi"] or "—",pressure,r["pulse"] or "—",r["glucose_mg_dl"] or "—",samples.get(r["glucose_sample_type"],r["glucose_sample_type"]),contexts.get(r["glucose_context"],r["glucose_context"]),r["oxygen_saturation"] or "—",r["temperature_c"] or "—",r["notes"] or "—",state,pressure_result.label,glucose_result.label,pulse_result.label],{13:"#ef6a72" if r["voided_at"] else "#56d38a",14:pressure_result.color,15:glucose_result.color,16:pulse_result.color})
+            symptoms=pressure_alarm_symptom_text(r["pressure_alarm_symptoms"])
+            self.grid.item(self.grid.rowCount()-1,14).setToolTip(pressure_result.label+"\n"+pressure_result.note+("\nSíntomas: "+symptoms if symptoms else "")+"\n"+DISCLAIMER)
+            self.grid.item(self.grid.rowCount()-1,15).setToolTip(glucose_result.label+"\n"+glucose_result.note+"\n"+DISCLAIMER)
+            self.grid.item(self.grid.rowCount()-1,16).setToolTip(pulse_result.label+"\nReferencia para adultos en reposo.\n"+DISCLAIMER)
         fit_table_height(self.grid,3,10)
     def add(self):
         dialog=MedicalControlDialog(self)

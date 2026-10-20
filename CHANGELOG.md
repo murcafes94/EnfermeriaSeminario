@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 3.7.0
+
+- Clasifica la presión arterial por el componente sistólico o diastólico de mayor severidad.
+- Distingue presión elevada, lecturas en rango de hipertensión etapa 1 y 2, presión baja y presión severamente elevada sin convertir una toma aislada en diagnóstico.
+- Añade síntomas de alarma y aviso de atención médica urgente para presión severamente elevada.
+- Integra glucemia con valor, tipo de muestra y condición, con Capilar y Ayunas como valores habituales del nuevo control.
+- Evalúa glucemia en ayunas con alertas visuales coherentes y evita diagnosticar diabetes desde una lectura capilar.
+- Conserva muestra, condición, síntomas y evaluaciones en historial, Excel, PDF y sincronización web.
+- Migra automáticamente bases existentes sin sustituir controles ni otros módulos.
+
 ## 3.6.3
 
 - Corrige el fallo de arranque de openpyxl causado por NumPy incompleto.

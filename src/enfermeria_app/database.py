@@ -148,7 +148,8 @@ CREATE TABLE IF NOT EXISTS medical_controls (
  measured_at TEXT NOT NULL,
  weight_kg REAL, height_cm REAL, bmi REAL,
  systolic INTEGER, diastolic INTEGER, pulse INTEGER,
- glucose_mg_dl REAL, glucose_context TEXT DEFAULT '',
+ pressure_alarm_symptoms TEXT DEFAULT '',
+ glucose_mg_dl REAL, glucose_sample_type TEXT DEFAULT '', glucose_context TEXT DEFAULT '',
  oxygen_saturation REAL, temperature_c REAL,
  notes TEXT DEFAULT '', referral TEXT DEFAULT '', recorded_by TEXT DEFAULT '',
  voided_at TEXT, void_reason TEXT DEFAULT '',
@@ -349,6 +350,10 @@ class Database:
             "movements": {"lot_id": "INTEGER", "created_at": "TEXT", "voided_at": "TEXT",
                           "void_reason": "TEXT DEFAULT ''", "reverses_movement_id": "INTEGER"},
             "equipment_loans": {"movement_id": "INTEGER", "return_movement_id": "INTEGER"},
+            "medical_controls": {
+                "pressure_alarm_symptoms": "TEXT DEFAULT ''",
+                "glucose_sample_type": "TEXT DEFAULT ''",
+            },
         }
         for table, cols in migrations.items():
             current = self._columns(conn, table)
@@ -554,7 +559,8 @@ class Database:
         bmi=round(float(weight)/((float(height)/100)**2),2) if weight and height else None
         values=(seminarian_id,data["measured_at"],weight,height,bmi,
                 self._number_or_none(data.get("systolic")),self._number_or_none(data.get("diastolic")),
-                self._number_or_none(data.get("pulse")),self._number_or_none(data.get("glucose_mg_dl")),
+                self._number_or_none(data.get("pulse")),self._text(data.get("pressure_alarm_symptoms")),
+                self._number_or_none(data.get("glucose_mg_dl")),self._text(data.get("glucose_sample_type")),
                 self._text(data.get("glucose_context")),self._number_or_none(data.get("oxygen_saturation")),
                 self._number_or_none(data.get("temperature_c")),sentence_case(data.get("notes")),
                 sentence_case(data.get("referral")),proper_name(data.get("recorded_by")))
@@ -565,13 +571,13 @@ class Database:
                 if not conn.execute("SELECT 1 FROM medical_controls WHERE id=? AND seminarian_id=? AND voided_at IS NULL",(control_id,seminarian_id)).fetchone():
                     raise ValueError("El control de salud no existe, no corresponde al expediente o está anulado.")
                 conn.execute("""UPDATE medical_controls SET seminarian_id=?,measured_at=?,weight_kg=?,height_cm=?,bmi=?,
-                    systolic=?,diastolic=?,pulse=?,glucose_mg_dl=?,glucose_context=?,oxygen_saturation=?,temperature_c=?,
+                    systolic=?,diastolic=?,pulse=?,pressure_alarm_symptoms=?,glucose_mg_dl=?,glucose_sample_type=?,glucose_context=?,oxygen_saturation=?,temperature_c=?,
                     notes=?,referral=?,recorded_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",values+(control_id,))
                 self._audit(conn,"medical_control_updated","medical_control",control_id,{"seminarian_id":seminarian_id})
                 return control_id
             cur=conn.execute("""INSERT INTO medical_controls(seminarian_id,measured_at,weight_kg,height_cm,bmi,
-                systolic,diastolic,pulse,glucose_mg_dl,glucose_context,oxygen_saturation,temperature_c,
-                notes,referral,recorded_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",values)
+                systolic,diastolic,pulse,pressure_alarm_symptoms,glucose_mg_dl,glucose_sample_type,glucose_context,oxygen_saturation,temperature_c,
+                notes,referral,recorded_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",values)
             self._audit(conn,"medical_control_created","medical_control",cur.lastrowid,{"seminarian_id":seminarian_id})
             return cur.lastrowid
 

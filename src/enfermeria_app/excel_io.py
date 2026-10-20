@@ -313,9 +313,9 @@ def _add_movements_sheet(wb: Workbook, db: Database, active=False):
 def _add_medical_controls_sheet(wb: Workbook, db: Database, active=False, seminarian_id: int | None = None):
     ws=wb.active if active else wb.create_sheet();ws.title="Controles de salud"
     ws.append(["ID","Seminarista","Fecha","Peso kg","Estatura cm","IMC","Sistólica","Diastólica","Pulso",
-               "Glucosa mg/dL","Condición glucosa","SpO2 %","Temperatura °C","Observaciones","Recomendación o derivación","Registrado por","Estado","Motivo anulación"])
+               "Síntomas alarma presión","Glucemia mg/dL","Tipo de muestra","Condición glucemia","SpO2 %","Temperatura °C","Observaciones","Recomendación o derivación","Registrado por","Estado","Motivo anulación"])
     query="""SELECT c.id,s.first_name||' '||s.last_name seminarian,c.measured_at,c.weight_kg,c.height_cm,c.bmi,
-        c.systolic,c.diastolic,c.pulse,c.glucose_mg_dl,c.glucose_context,c.oxygen_saturation,c.temperature_c,
+        c.systolic,c.diastolic,c.pulse,c.pressure_alarm_symptoms,c.glucose_mg_dl,c.glucose_sample_type,c.glucose_context,c.oxygen_saturation,c.temperature_c,
         c.notes,c.referral,c.recorded_by,CASE WHEN c.voided_at IS NULL THEN 'Vigente' ELSE 'Anulado' END state,c.void_reason
         FROM medical_controls c JOIN seminarians s ON s.id=c.seminarian_id"""
     params=()
