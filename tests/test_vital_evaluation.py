@@ -76,9 +76,13 @@ class VitalEvaluationTests(unittest.TestCase):
             path=Path(directory)/'legacy.db';db=Database(path)
             sem=db.insert_seminarian({'first_name':'Registro','last_name':'Existente'})
             control=db.save_medical_control(sem,{'measured_at':'2026-10-01T08:00:00','glucose_mg_dl':92,'glucose_context':'fasting'})
-            with sqlite3.connect(path) as connection:
+            connection=sqlite3.connect(path)
+            try:
                 connection.execute('ALTER TABLE medical_controls DROP COLUMN pressure_alarm_symptoms')
                 connection.execute('ALTER TABLE medical_controls DROP COLUMN glucose_sample_type')
+                connection.commit()
+            finally:
+                connection.close()
             migrated=Database(path);row=migrated.query('SELECT * FROM medical_controls WHERE id=?',(control,))[0]
             self.assertEqual((row['glucose_mg_dl'],row['glucose_context']),(92,'fasting'))
             self.assertEqual((row['pressure_alarm_symptoms'],row['glucose_sample_type']),('',''))
