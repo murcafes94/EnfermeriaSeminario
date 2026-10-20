@@ -38,13 +38,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Falló la creación del instalador.' }
           New-Item -ItemType Directory -Force dist/entrega | Out-Null
           Copy-Item dist/installer/*.exe dist/entrega/
-          Compress-Archive -Path dist/EnfermeriaSeminario -DestinationPath dist/entrega/Enfermeria-Windows-Portable-3.6.3.zip
-          Copy-Item LEEME_v3.6.3.md dist/entrega/
+          Compress-Archive -Path dist/EnfermeriaSeminario -DestinationPath dist/entrega/Enfermeria-Windows-Portable-3.7.0.zip
+          Copy-Item LEEME_v3.7.0.md dist/entrega/
           Get-ChildItem dist/entrega -File | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $([IO.Path]::GetFileName($_.Path))" } | Set-Content dist/entrega/SHA256SUMS.txt
       - name: Descargar resultados
         uses: actions/upload-artifact@v6
         with:
-          name: Enfermeria-Windows-v3.6.3
+          name: Enfermeria-Windows-v3.7.0
           path: dist/entrega/
           if-no-files-found: error
           retention-days: 14
